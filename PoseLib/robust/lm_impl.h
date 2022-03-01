@@ -77,8 +77,14 @@ BundleStats lm_impl(Problem &problem, Param *parameters, const BundleOptions &op
         }
 
         // Add dampening
-        for (size_t k = 0; k < n_params; ++k) {
-            JtJ(k, k) += stats.lambda;
+        if (opt.scale_lambda_diagonal) {
+            for (size_t k = 0; k < n_params; ++k) {
+                JtJ(k, k) *= (1 + stats.lambda);
+            }
+        } else {
+            for (size_t k = 0; k < n_params; ++k) {
+                JtJ(k, k) += stats.lambda;
+            }
         }
 
         Eigen::Matrix<double, n_params, 1> sol = -JtJ.template selfadjointView<Eigen::Lower>().llt().solve(Jtr);
@@ -91,6 +97,7 @@ BundleStats lm_impl(Problem &problem, Param *parameters, const BundleOptions &op
         Param parameters_new = problem.step(sol, *parameters);
 
         double cost_new = problem.residual(parameters_new);
+        double cost_old = stats.cost;
 
         if (cost_new < stats.cost) {
             *parameters = parameters_new;
@@ -100,8 +107,14 @@ BundleStats lm_impl(Problem &problem, Param *parameters, const BundleOptions &op
         } else {
             stats.invalid_steps++;
             // Remove dampening
-            for (size_t k = 0; k < n_params; ++k) {
-                JtJ(k, k) -= stats.lambda;
+            if (opt.scale_lambda_diagonal) {
+                for (size_t k = 0; k < n_params; ++k) {
+                    JtJ(k, k) /= (1 + stats.lambda);
+                }
+            } else {
+                for (size_t k = 0; k < n_params; ++k) {
+                    JtJ(k, k) -= stats.lambda;
+                }
             }
             stats.lambda = std::min(opt.max_lambda, stats.lambda * 10);
             recompute_jac = false;
@@ -109,6 +122,10 @@ BundleStats lm_impl(Problem &problem, Param *parameters, const BundleOptions &op
         if (callback != nullptr) {
             callback(stats);
         }
+
+        // Mikhail: relative cost change termination criterion
+        if (std::abs(cost_new - cost_old) < opt.rel_change_tol * std::abs(cost_old))
+            break;
     }
     return stats;
 }

@@ -67,7 +67,10 @@ struct BundleOptions {
     } loss_type = LossType::CAUCHY;
     double loss_scale = 1.0;
     double gradient_tol = 1e-10;
+    // Mikhail: additional criterion for stopping, |change f| / |f| < rel_change_tol
+    double rel_change_tol = 1e-6;
     double step_tol = 1e-8;
+    bool scale_lambda_diagonal = true;
     double initial_lambda = 1e-3;
     double min_lambda = 1e-10;
     double max_lambda = 1e10;

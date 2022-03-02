@@ -74,6 +74,9 @@ struct BundleOptions {
     double initial_lambda = 1e-3;
     double min_lambda = 1e-10;
     double max_lambda = 1e10;
+    double lambda_multiplier = 10;
+    double min_lm_diagonal = 1e-6;
+    double max_lm_diagonal = 1e32;
     bool verbose = false;
 };
 

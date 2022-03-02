@@ -69,7 +69,9 @@ BundleStats lm_impl(Problem &problem, Param *parameters, const BundleOptions &op
         if (recompute_jac) {
             JtJ.setZero();
             Jtr.setZero();
-            problem.accumulate(*parameters, JtJ, Jtr);
+            size_t num_residuals = problem.accumulate(*parameters, JtJ, Jtr);
+            JtJ /= num_residuals;
+            Jtr /= num_residuals;
             stats.grad_norm = Jtr.norm();
             if (stats.grad_norm < opt.gradient_tol) {
                 break;
@@ -77,9 +79,15 @@ BundleStats lm_impl(Problem &problem, Param *parameters, const BundleOptions &op
         }
 
         // Add dampening
+        Eigen::Matrix<double, n_params, 1> lm_diag;
+        for (size_t k = 0; k < n_params; ++k) {
+            lm_diag(k) = stats.lambda * std::clamp(JtJ(k, k),
+                                                opt.min_lm_diagonal,
+                                                opt.max_lm_diagonal);
+        }
         if (opt.scale_lambda_diagonal) {
             for (size_t k = 0; k < n_params; ++k) {
-                JtJ(k, k) *= (1 + stats.lambda);
+                JtJ(k, k) += lm_diag(k);
             }
         } else {
             for (size_t k = 0; k < n_params; ++k) {
@@ -88,6 +96,12 @@ BundleStats lm_impl(Problem &problem, Param *parameters, const BundleOptions &op
         }
 
         Eigen::Matrix<double, n_params, 1> sol = -JtJ.template selfadjointView<Eigen::Lower>().llt().solve(Jtr);
+//        Eigen::Matrix<double, n_params, 1> sol =
+//            -JtJ.template selfadjointView<Eigen::Lower>().ldlt().solve(Jtr);
+
+//        Eigen::Matrix<double, n_params, n_params> JtJ_full;
+//        JtJ_full = JtJ.template selfadjointView<Eigen::Lower>();
+//        Eigen::Matrix<double, n_params, 1> sol = -JtJ_full.jacobiSvd().solve(Jtr);
 
         stats.step_norm = sol.norm();
         if (stats.step_norm < opt.step_tol) {
@@ -101,7 +115,7 @@ BundleStats lm_impl(Problem &problem, Param *parameters, const BundleOptions &op
 
         if (cost_new < stats.cost) {
             *parameters = parameters_new;
-            stats.lambda = std::max(opt.min_lambda, stats.lambda / 10);
+            stats.lambda = std::max(opt.min_lambda, stats.lambda / opt.lambda_multiplier);
             stats.cost = cost_new;
             recompute_jac = true;
         } else {
@@ -109,14 +123,14 @@ BundleStats lm_impl(Problem &problem, Param *parameters, const BundleOptions &op
             // Remove dampening
             if (opt.scale_lambda_diagonal) {
                 for (size_t k = 0; k < n_params; ++k) {
-                    JtJ(k, k) /= (1 + stats.lambda);
+                    JtJ(k, k) -= lm_diag(k);
                 }
             } else {
                 for (size_t k = 0; k < n_params; ++k) {
                     JtJ(k, k) -= stats.lambda;
                 }
             }
-            stats.lambda = std::min(opt.max_lambda, stats.lambda * 10);
+            stats.lambda = std::min(opt.max_lambda, stats.lambda * opt.lambda_multiplier);
             recompute_jac = false;
         }
         if (callback != nullptr) {

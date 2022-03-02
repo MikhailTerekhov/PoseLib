@@ -44,6 +44,9 @@ void essential_from_motion(const CameraPose &pose, Eigen::Matrix3d *E);
 // with lambda_1 and lambda_2 positive
 bool check_cheirality(const CameraPose &pose, const Eigen::Vector3d &x1, const Eigen::Vector3d &x2,
                       double min_depth = 0.0);
+// Does the same checks for all vectors
+bool check_cheirality(const CameraPose &pose, const std::vector<Eigen::Vector3d> &x1,
+                      const std::vector<Eigen::Vector3d> &x2, double min_depth = 0.0);
 // Corresponding generalized version
 bool check_cheirality(const CameraPose &pose, const Eigen::Vector3d &p1, const Eigen::Vector3d &x1,
                       const Eigen::Vector3d &p2, const Eigen::Vector3d &x2, double min_depth = 0.0);
@@ -66,6 +69,10 @@ The method also takes one point correspondence that is used to filter for cheira
 */
 void motion_from_essential(const Eigen::Matrix3d &E, const Eigen::Vector3d &x1, const Eigen::Vector3d &x2,
                            CameraPoseVector *relative_poses);
+
+// Same as previous, but checks cheirality for all correspondences
+void motion_from_essential(const Eigen::Matrix3d &E, const std::vector<Eigen::Vector3d> &x1,
+                           const std::vector<Eigen::Vector3d> &x2, CameraPoseVector *relative_poses);
 
 /*
 Factorizes the essential matrix into the relative poses. Assumes that the essential matrix corresponds to

@@ -29,8 +29,10 @@ endif()
 if(MSVC)
 	target_compile_options(${LIBRARY_NAME} PRIVATE /bigobj /fp:fast)
 else()
+	# Sadly gcc-12 reports array bounds problem with Eigen, see
+	# https://stackoverflow.com/questions/72871100/compiler-library-or-user-error-eigenarray-gcc-12-1-array-subscript
 	target_compile_options(${LIBRARY_NAME} PRIVATE
 		-march=native -ffast-math -fno-unsafe-math-optimizations
 		-funroll-loops -fprefetch-loop-arrays -funswitch-loops
-	 	-Wall -Werror -fPIC)
+	 	-Wall -Werror -Wno-array-bounds -fPIC)
 endif()
